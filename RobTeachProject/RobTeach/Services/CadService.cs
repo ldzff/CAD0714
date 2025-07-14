@@ -66,29 +66,34 @@ namespace RobTeach.Services
                 }
                 return new System.Windows.Shapes.Path { Data = group };
             }
-
-            switch (entity)
+            if (entity is DxfLine line)
             {
-                case DxfLine line:
-                    return new System.Windows.Shapes.Line
-                    {
-                        X1 = line.P1.X, Y1 = line.P1.Y,
-                        X2 = line.P2.X, Y2 = line.P2.Y
-                    };
-                case DxfCircle circle:
-                    return new System.Windows.Shapes.Ellipse
-                    {
-                        Width = circle.Radius * 2,
-                        Height = circle.Radius * 2,
-                        RenderTransform = new TranslateTransform(circle.Center.X - circle.Radius, circle.Center.Y - circle.Radius)
-                    };
-                case DxfArc arc:
-                    return CreateArcPath(arc);
-                case DxfLwPolyline polyline:
-                    return ConvertLwPolylineToWpfPath(polyline);
-                default:
-                    return null;
+                return new System.Windows.Shapes.Line
+                {
+                    X1 = line.P1.X,
+                    Y1 = line.P1.Y,
+                    X2 = line.P2.X,
+                    Y2 = line.P2.Y
+                };
             }
+            if (entity is DxfCircle circle)
+            {
+                return new System.Windows.Shapes.Ellipse
+                {
+                    Width = circle.Radius * 2,
+                    Height = circle.Radius * 2,
+                    RenderTransform = new TranslateTransform(circle.Center.X - circle.Radius, circle.Center.Y - circle.Radius)
+                };
+            }
+            if (entity is DxfArc arc)
+            {
+                return CreateArcPath(arc);
+            }
+            if (entity is DxfLwPolyline polyline)
+            {
+                return ConvertLwPolylineToWpfPath(polyline);
+            }
+            return null;
         }
 
         private System.Windows.Shapes.Path? CreateArcPath(DxfArc dxfArc)
