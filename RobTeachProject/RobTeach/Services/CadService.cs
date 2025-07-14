@@ -58,14 +58,12 @@ namespace RobTeach.Services
                         X2 = line.P2.X, Y2 = line.P2.Y
                     };
                 case DxfCircle circle:
-                    var ellipse = new System.Windows.Shapes.Ellipse
+                    return new System.Windows.Shapes.Ellipse
                     {
                         Width = circle.Radius * 2,
-                        Height = circle.Radius * 2
+                        Height = circle.Radius * 2,
+                        RenderTransform = new TranslateTransform(circle.Center.X - circle.Radius, circle.Center.Y - circle.Radius)
                     };
-                    Canvas.SetLeft(ellipse, circle.Center.X - circle.Radius);
-                    Canvas.SetTop(ellipse, circle.Center.Y - circle.Radius);
-                    return ellipse;
                 case DxfArc arc:
                     return CreateArcPath(arc);
                 case DxfLwPolyline polyline:
