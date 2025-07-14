@@ -1406,190 +1406,43 @@ namespace RobTeach.Views
         /// Prompts the user to select a DXF file, loads it using <see cref="CadService"/>,
         /// processes its entities for display, and fits the view to the loaded drawing.
         /// </summary>
-        private void DrawDxfEntities()
-        {
-            if (_currentDxfDocument == null)
-            {
-                AppLogger.Log("DrawDxfEntities: No DXF document loaded.", LogLevel.Warning);
-                return;
-            }
-
-            AppLogger.Log("=== Drawing DXF Entities ===", LogLevel.Info);
-            foreach (var entity in _currentDxfDocument.Entities)
-            {
-                System.Windows.Shapes.Shape? shape = null;
-
-                if (entity is DxfLine line)
-                {
-                    var wpfLine = new System.Windows.Shapes.Line
-                    {
-                        X1 = line.P1.X,
-                        Y1 = line.P1.Y,
-                        X2 = line.P2.X,
-                        Y2 = line.P2.Y,
-                        Stroke = DefaultStrokeBrush,
-                        StrokeThickness = DefaultStrokeThickness
-                    };
-                    shape = wpfLine;
-                    AppLogger.Log($"Drawing Line: ({line.P1.X:F2}, {line.P1.Y:F2}) to ({line.P2.X:F2}, {line.P2.Y:F2})", LogLevel.Info);
-                }
-                else if (entity is DxfCircle circle)
-                {
-                    var wpfEllipse = new System.Windows.Shapes.Ellipse
-                    {
-                        Width = circle.Radius * 2,
-                        Height = circle.Radius * 2,
-                        Stroke = DefaultStrokeBrush,
-                        StrokeThickness = DefaultStrokeThickness,
-                        Fill = null
-                    };
-                    Canvas.SetLeft(wpfEllipse, circle.Center.X - circle.Radius);
-                    Canvas.SetTop(wpfEllipse, circle.Center.Y - circle.Radius);
-                    shape = wpfEllipse;
-                    AppLogger.Log($"Drawing Circle: Center({circle.Center.X:F2}, {circle.Center.Y:F2}), Radius={circle.Radius:F2}", LogLevel.Info);
-                }
-                else if (entity is DxfArc arc)
-                {
-                    var pathGeometry = new PathGeometry();
-                    var pathFigure = new PathFigure();
-                    
-                    // Convert angles to radians
-                    double startAngle = arc.StartAngle * Math.PI / 180.0;
-                    double endAngle = arc.EndAngle * Math.PI / 180.0;
-                    
-                    // Calculate start point
-                    double startX = arc.Center.X + arc.Radius * Math.Cos(startAngle);
-                    double startY = arc.Center.Y + arc.Radius * Math.Sin(startAngle);
-                    pathFigure.StartPoint = new Point(startX, startY);
-
-                    // Create the arc segment
-                    var arcSegment = new ArcSegment
-                    {
-                        Point = new Point(
-                            arc.Center.X + arc.Radius * Math.Cos(endAngle),
-                            arc.Center.Y + arc.Radius * Math.Sin(endAngle)),
-                        Size = new Size(arc.Radius, arc.Radius),
-                        IsLargeArc = Math.Abs(endAngle - startAngle) > Math.PI,
-                        SweepDirection = endAngle > startAngle ? SweepDirection.Clockwise : SweepDirection.Counterclockwise
-                    };
-
-                    pathFigure.Segments.Add(arcSegment);
-                    pathGeometry.Figures.Add(pathFigure);
-
-                    var path = new System.Windows.Shapes.Path
-                    {
-                        Data = pathGeometry,
-                        Stroke = DefaultStrokeBrush,
-                        StrokeThickness = DefaultStrokeThickness
-                    };
-                    shape = path;
-                    AppLogger.Log($"Drawing Arc: Center({arc.Center.X:F2}, {arc.Center.Y:F2}), Radius={arc.Radius:F2}, Angles={arc.StartAngle:F2} to {arc.EndAngle:F2}", LogLevel.Info);
-                }
-                else if (entity is DxfLwPolyline polyline)
-                {
-                    var points = new PointCollection();
-                    foreach (var vertex in polyline.Vertices)
-                    {
-                        points.Add(new Point(vertex.X, vertex.Y));
-                    }
-
-                    if (polyline.IsClosed && points.Count > 0)
-                    {
-                        points.Add(points[0]); // Close the polyline by adding the first point again
-                    }
-
-                    var wpfPolyline = new System.Windows.Shapes.Polyline
-                    {
-                        Points = points,
-                        Stroke = DefaultStrokeBrush,
-                        StrokeThickness = DefaultStrokeThickness
-                    };
-                    shape = wpfPolyline;
-                    AppLogger.Log($"Drawing Polyline: {polyline.Vertices.Count} vertices, Closed={polyline.IsClosed}", LogLevel.Info);
-                }
-
-                if (shape != null)
-                {
-                    // Generate a unique identifier for the entity
-                    string entityId = Guid.NewGuid().ToString();
-                    shape.Tag = entityId;
-                    shape.MouseLeftButtonDown += OnCadEntityClicked;
-                    CadCanvas.Children.Add(shape);
-                    _wpfShapeToDxfEntityMap[shape] = entity;
-                    _dxfEntityHandleMap[entityId] = entity;
-                }
-            }
-
-            AppLogger.Log($"Total entities drawn: {CadCanvas.Children.Count}", LogLevel.Info);
-        }
-
         private void LoadDxfButton_Click(object sender, RoutedEventArgs e)
         {
-            try
+            var openFileDialog = new OpenFileDialog
             {
-                var openFileDialog = new OpenFileDialog
-                {
-                    Filter = "DXF files (*.dxf)|*.dxf|All files (*.*)|*.*",
-                    FilterIndex = 1
-                };
+                Filter = "DXF Files (*.dxf)|*.dxf|All Files (*.*)|*.*"
+            };
 
-                if (openFileDialog.ShowDialog() == true)
+            if (openFileDialog.ShowDialog() == true)
+            {
+                try
                 {
                     _currentDxfFilePath = openFileDialog.FileName;
-                    _currentDxfDocument = DxfFile.Load(_currentDxfFilePath);
+                    _currentDxfDocument = _cadService.LoadDxf(_currentDxfFilePath);
 
-                    // Log loaded entities
-                    AppLogger.Log("=== Loaded DXF Entities ===", LogLevel.Info);
-                    foreach (var entity in _currentDxfDocument.Entities)
-                    {
-                        if (entity is DxfLine line)
-                        {
-                            AppLogger.Log($"Line: Start({line.P1.X:F2}, {line.P1.Y:F2}) to End({line.P2.X:F2}, {line.P2.Y:F2})", LogLevel.Info);
-                        }
-                        else if (entity is DxfCircle circle)
-                        {
-                            AppLogger.Log($"Circle: Center({circle.Center.X:F2}, {circle.Center.Y:F2}), Radius={circle.Radius:F2}", LogLevel.Info);
-                        }
-                        else if (entity is DxfLwPolyline polyline)
-                        {
-                            AppLogger.Log($"Polyline: {polyline.Vertices.Count} vertices:", LogLevel.Info);
-                            foreach (var vertex in polyline.Vertices)
-                            {
-                                AppLogger.Log($"  - Point({vertex.X:F2}, {vertex.Y:F2})", LogLevel.Info);
-                            }
-                        }
-                    }
-
-                    // Calculate and log bounding box
-                    _dxfBoundingBox = GetDxfBoundingBox(_currentDxfDocument);
-                    AppLogger.Log($"=== DXF Bounding Box ===", LogLevel.Info);
-                    AppLogger.Log($"X: {_dxfBoundingBox.X:F2} to {_dxfBoundingBox.X + _dxfBoundingBox.Width:F2}", LogLevel.Info);
-                    AppLogger.Log($"Y: {_dxfBoundingBox.Y:F2} to {_dxfBoundingBox.Y + _dxfBoundingBox.Height:F2}", LogLevel.Info);
-                    AppLogger.Log($"Width: {_dxfBoundingBox.Width:F2}, Height: {_dxfBoundingBox.Height:F2}", LogLevel.Info);
-
-                    // Clear existing content
+                    // Clear existing canvas content and maps
                     CadCanvas.Children.Clear();
                     _wpfShapeToDxfEntityMap.Clear();
                     _dxfEntityHandleMap.Clear();
+                    _selectedDxfEntities.Clear();
 
-                    // Draw entities and update UI
-                    DrawDxfEntities();
-                        PerformFitToView();
-                    
-                    // Log canvas information
-                    AppLogger.Log($"=== Canvas Information ===", LogLevel.Info);
-                    AppLogger.Log($"Canvas Size: {CadCanvas.ActualWidth:F2} x {CadCanvas.ActualHeight:F2}", LogLevel.Info);
-                    AppLogger.Log($"Final Scale: ({_scaleTransform.ScaleX:F2}, {_scaleTransform.ScaleY:F2})", LogLevel.Info);
-                    AppLogger.Log($"Final Translation: ({_translateTransform.X:F2}, {_translateTransform.Y:F2})", LogLevel.Info);
+                    // Get WPF shapes from CadService
+                    var wpfShapes = _cadService.GetWpfShapesFromDxf(_currentDxfDocument);
 
-                    // Update status
+                    // Update the canvas with the new shapes
+                    UpdateShapesOnCanvas(wpfShapes);
+
+                    // Update bounding box and fit to view
+                    _dxfBoundingBox = GetDxfBoundingBox(_currentDxfDocument);
+                    PerformFitToView();
+
                     StatusTextBlock.Text = $"Loaded: {System.IO.Path.GetFileName(_currentDxfFilePath)}";
                     isConfigurationDirty = true;
                 }
-            }
-            catch (Exception ex)
-            {
-                HandleError(ex, "loading DXF file");
+                catch (Exception ex)
+                {
+                    HandleError(ex, "loading and drawing DXF file");
+                }
             }
         }
 

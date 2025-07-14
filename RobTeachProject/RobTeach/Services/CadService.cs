@@ -35,112 +35,59 @@ namespace RobTeach.Services
             }
         }
         
-        public List<System.Windows.Shapes.Shape?> GetWpfShapesFromDxf(DxfFile dxfFile) // Allow null shapes in list
+        public List<System.Windows.Shapes.Shape?> GetWpfShapesFromDxf(DxfFile dxfFile)
         {
-            var wpfShapes = new List<System.Windows.Shapes.Shape?>(); // Allow null shapes in list
-            if (dxfFile == null)
+            var wpfShapes = new List<System.Windows.Shapes.Shape?>();
+            if (dxfFile == null) return wpfShapes;
+
+            foreach (var entity in dxfFile.Entities)
             {
-                AppLogger.Log("[CadService] GetWpfShapesFromDxf: dxfFile is null. Returning empty list.", LogLevel.Warning);
-                return wpfShapes;
+                wpfShapes.Add(CreateShapeFromEntity(entity, dxfFile));
             }
-            AppLogger.Log($"[CadService] GetWpfShapesFromDxf: Processing {dxfFile.Entities.Count()} entities from DXF document.", LogLevel.Debug);
-            int entityCounter = 0;
-
-            foreach (DxfEntity entity in dxfFile.Entities) // Ensure entity is typed as DxfEntity for direct Handle access
-            {
-                System.Windows.Shapes.Shape? wpfShape = null;
-                AppLogger.Log($"[CadService] GetWpfShapesFromDxf: Processing entity at index {entityCounter} (C# Type: {entity.GetType().Name}, Layer: {entity.Layer}).", LogLevel.Debug);
-
-                try
-                {
-                    switch (entity)
-                    {
-                        case DxfLine dxfLine:
-                            wpfShape = new System.Windows.Shapes.Line
-                            {
-                                X1 = dxfLine.P1.X,
-                                Y1 = dxfLine.P1.Y,
-                                X2 = dxfLine.P2.X,
-                                Y2 = dxfLine.P2.Y,
-                                IsHitTestVisible = true
-                            };
-                            AppLogger.Log($"[CadService]   Converted DxfLine ({dxfLine.P1.X:F2},{dxfLine.P1.Y:F2}) to ({dxfLine.P2.X:F2},{dxfLine.P2.Y:F2})", LogLevel.Debug);
-                            break;
-
-                        case DxfArc dxfArc:
-                            wpfShape = CreateArcPath(dxfArc);
-                            if (wpfShape != null)
-                                AppLogger.Log($"[CadService]   Converted DxfArc (Center:{dxfArc.Center.X:F2},{dxfArc.Center.Y:F2}, R:{dxfArc.Radius:F2}, Start:{dxfArc.StartAngle:F2}, End:{dxfArc.EndAngle:F2})", LogLevel.Debug);
-                            else
-                                AppLogger.Log($"[CadService]   FAILED to convert DxfArc.", LogLevel.Warning);
-                            break;
-
-                        case DxfCircle dxfCircle:
-                            var ellipseGeometry = new EllipseGeometry(
-                                new System.Windows.Point(dxfCircle.Center.X, dxfCircle.Center.Y),
-                                dxfCircle.Radius,
-                                dxfCircle.Radius
-                            );
-                            wpfShape = new System.Windows.Shapes.Path
-                            {
-                                Data = ellipseGeometry,
-                                Fill = Brushes.Transparent,
-                                IsHitTestVisible = true
-                            };
-                            AppLogger.Log($"[CadService]   Converted DxfCircle (Center:{dxfCircle.Center.X:F2},{dxfCircle.Center.Y:F2}, R:{dxfCircle.Radius:F2})", LogLevel.Debug);
-                            break;
-
-                        case DxfLwPolyline lwPoly:
-                            wpfShape = ConvertLwPolylineToWpfPath(lwPoly);
-                            if(wpfShape != null)
-                                AppLogger.Log($"[CadService]   Converted DxfLwPolyline with {lwPoly.Vertices.Count} vertices", LogLevel.Debug);
-                            else
-                                AppLogger.Log($"[CadService]   FAILED to convert DxfLwPolyline.", LogLevel.Warning);
-                            break;
-
-                        case DxfInsert insert:
-                            // Handle block insertions
-                            var block = dxfFile.Blocks.FirstOrDefault(b => b.Name == insert.Name);
-                            if (block != null)
-                            {
-                                foreach (var blockEntity in block.Entities)
-                                {
-                                    var transformedEntity = TransformBlockEntity(blockEntity, insert);
-                                    if (transformedEntity != null)
-                                    {
-                                        var tempFile = new DxfFile();
-                                        tempFile.Entities.Add(transformedEntity);
-                                        var blockShape = GetWpfShapesFromDxf(tempFile).FirstOrDefault();
-                                        if (blockShape != null)
-                                        {
-                                            wpfShapes.Add(blockShape);
-                                            AppLogger.Log($"[CadService]   Converted block entity {blockEntity.GetType().Name}", LogLevel.Debug);
-                                        }
-                                    }
-                                }
-                                wpfShape = null; // Skip adding the insert itself since we added its contents
-                            }
-                            break;
-
-                        default:
-                            AppLogger.Log($"[CadService]   EntityType '{entity.GetType().Name}' not supported for WPF shape conversion.", LogLevel.Debug);
-                            break;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.Log($"[CadService] Error converting entity {entity.GetType().Name}: {ex.Message}", ex, LogLevel.Error);
-                    wpfShape = null;
-                }
-
-                if (wpfShape != null)
-                {
-                    wpfShapes.Add(wpfShape);
-                }
-                entityCounter++;
-            }
-            AppLogger.Log($"[CadService] GetWpfShapesFromDxf: Finished processing. Returning list with {wpfShapes.Count} elements.", LogLevel.Debug);
             return wpfShapes;
+        }
+
+        private System.Windows.Shapes.Shape? CreateShapeFromEntity(DxfEntity entity, DxfFile dxfFile)
+        {
+            switch (entity)
+            {
+                case DxfLine line:
+                    return new System.Windows.Shapes.Line
+                    {
+                        X1 = line.P1.X, Y1 = line.P1.Y,
+                        X2 = line.P2.X, Y2 = line.P2.Y
+                    };
+                case DxfCircle circle:
+                    var ellipse = new System.Windows.Shapes.Ellipse
+                    {
+                        Width = circle.Radius * 2,
+                        Height = circle.Radius * 2
+                    };
+                    Canvas.SetLeft(ellipse, circle.Center.X - circle.Radius);
+                    Canvas.SetTop(ellipse, circle.Center.Y - circle.Radius);
+                    return ellipse;
+                case DxfArc arc:
+                    return CreateArcPath(arc);
+                case DxfLwPolyline polyline:
+                    return ConvertLwPolylineToWpfPath(polyline);
+                case DxfInsert insert:
+                    var block = dxfFile.Blocks.FirstOrDefault(b => b.Name == insert.Name);
+                    if (block == null) return null;
+                    var group = new GeometryGroup();
+                    foreach (var blockEntity in block.Entities)
+                    {
+                        var transformedEntity = TransformBlockEntity(blockEntity, insert);
+                        var shape = CreateShapeFromEntity(transformedEntity, dxfFile);
+                        if (shape != null)
+                        {
+                            var geometry = shape.RenderedGeometry.Clone();
+                            group.Children.Add(geometry);
+                        }
+                    }
+                    return new System.Windows.Shapes.Path { Data = group };
+                default:
+                    return null;
+            }
         }
 
         private System.Windows.Shapes.Path? CreateArcPath(DxfArc dxfArc)
