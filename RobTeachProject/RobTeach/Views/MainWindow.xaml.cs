@@ -1461,12 +1461,9 @@ namespace RobTeach.Views
             double scaleY = (canvasHeight - 2 * margin) / _dxfBoundingBox.Height;
             double scale = Math.Min(scaleX, scaleY);
 
-            double offsetX = margin - _dxfBoundingBox.X * scale;
-            double offsetY = margin - _dxfBoundingBox.Y * scale;
-
             _transformGroup.Children.Clear();
-            _transformGroup.Children.Add(new ScaleTransform(scale, scale));
-            _transformGroup.Children.Add(new TranslateTransform(offsetX, offsetY));
+            _transformGroup.Children.Add(new ScaleTransform(scale, -scale));
+            _transformGroup.Children.Add(new TranslateTransform(margin - _dxfBoundingBox.X * scale, canvasHeight - margin + _dxfBoundingBox.Y * scale));
         }
 
         /// <summary>
