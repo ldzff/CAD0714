@@ -1448,102 +1448,23 @@ namespace RobTeach.Views
 
         private void PerformFitToView()
         {
-            if (_dxfBoundingBox == null || CadCanvas == null) return;
+            if (_dxfBoundingBox.IsEmpty || CadCanvas.ActualWidth == 0 || CadCanvas.ActualHeight == 0)
+                return;
 
-            double canvasWidth = CadCanvas.ActualWidth;
-            double canvasHeight = CadCanvas.ActualHeight;
+            double margin = 20; // 20 pixels margin on each side
+            double canvasWidth = CadCanvas.ActualWidth - 2 * margin;
+            double canvasHeight = CadCanvas.ActualHeight - 2 * margin;
 
-            AppLogger.Log("PerformFitToView: Method started.", LogLevel.Info);
-            AppLogger.Log($"PerformFitToView: Canvas ActualWidth={canvasWidth:F2}, ActualHeight={canvasHeight:F2}", LogLevel.Debug);
-            AppLogger.Log($"PerformFitToView: DXF BoundingBox Input (X,Y,W,H): ({_dxfBoundingBox.X:F2}, {_dxfBoundingBox.Y:F2}, {_dxfBoundingBox.Width:F2}, {_dxfBoundingBox.Height:F2})", LogLevel.Debug);
+            double scaleX = canvasWidth / _dxfBoundingBox.Width;
+            double scaleY = canvasHeight / _dxfBoundingBox.Height;
+            double scale = Math.Min(scaleX, scaleY);
 
-            double scale;
-            // Calculate scale to fit
-            if (_dxfBoundingBox.Width <= 1e-6 || _dxfBoundingBox.Height <= 1e-6) // Check for degenerate bounding box
-            {
-                AppLogger.Log("PerformFitToView: Bounding box width or height is zero or very small. Setting scale to 1.0.", LogLevel.Warning);
-                scale = 1.0; // Default scale for degenerate box (e.g. single point)
-            }
-            else
-            {
-                double scaleX = canvasWidth / _dxfBoundingBox.Width;
-                double scaleY = canvasHeight / _dxfBoundingBox.Height;
-                scale = Math.Min(scaleX, scaleY);
-                AppLogger.Log($"PerformFitToView: Scale Calculation - scaleX_raw={scaleX:F4}, scaleY_raw={scaleY:F4}, chosen_scale={scale:F4}", LogLevel.Debug);
-            }
-             // Prevent scale from being excessively small or zero, which can cause issues.
-            if (scale < 0.000001)
-            {
-                AppLogger.Log($"PerformFitToView: Calculated scale {scale:F6} is very small. Clamping to 0.000001.", LogLevel.Warning);
-                scale = 0.000001;
-            }
+            double dx = margin - (_dxfBoundingBox.Left * scale);
+            double dy = margin - (_dxfBoundingBox.Top * scale);
 
-
-            double scaledContentWidth = _dxfBoundingBox.Width * scale;
-            double scaledContentHeight = _dxfBoundingBox.Height * scale;
-            AppLogger.Log($"PerformFitToView: Scaled DXF content size (W,H): ({scaledContentWidth:F2}, {scaledContentHeight:F2})", LogLevel.Debug);
-
-            // Calculate translation to center
-            // _dxfBoundingBox.X is minX_dxf
-            // _dxfBoundingBox.Y is minY_dxf
-            double translateX = (canvasWidth - scaledContentWidth) / 2.0 - (_dxfBoundingBox.X * scale);
-            
-            double canvasCenterY = canvasHeight / 2.0;
-            // contentCenterY_dxf is the Y-coordinate of the center of the DXF bounding box, in DXF Y-up coordinates.
-            double contentCenterY_dxf = _dxfBoundingBox.Y + (_dxfBoundingBox.Height / 2.0);
-            // translateY is calculated so that contentCenterY_dxf, when transformed, maps to canvasCenterY.
-            // y_screen = y_dxf * (-scale) + translateY
-            // canvasCenterY = contentCenterY_dxf * (-scale) + translateY
-            // => translateY = canvasCenterY + (contentCenterY_dxf * scale)
-            double translateY = canvasCenterY + (contentCenterY_dxf * scale);
-
-            AppLogger.Log($"PerformFitToView: Translation Calculation - canvasCenterY={canvasCenterY:F2}, contentCenterY_dxf={contentCenterY_dxf:F2}", LogLevel.Debug);
-            AppLogger.Log($"PerformFitToView: Translation Calculation - translateX={translateX:F2}, translateY={translateY:F2}", LogLevel.Debug);
-
-            // Create new transform objects and assign them to ensure changes are robustly applied.
-            // This addresses the issue where direct property modifications on existing _scaleTransform
-            // and _translateTransform were not reflected in their logged state.
-            _scaleTransform = new ScaleTransform(scale, -scale); // Apply calculated scale; -scale for Y-axis inversion.
-            _translateTransform = new TranslateTransform(translateX, translateY); // Apply calculated translation.
-
-            // Recreate the TransformGroup and assign it to the canvas.
-            // This ensures the CadCanvas uses these new transform instances,
-            // and that _scaleTransform/_translateTransform fields point to these live instances.
-            _transformGroup = new TransformGroup();
-            _transformGroup.Children.Add(_scaleTransform);    // Add the new scale transform.
-            _transformGroup.Children.Add(_translateTransform); // Add the new translate transform.
-
-            CadCanvas.RenderTransform = _transformGroup; // Crucially re-assign the RenderTransform.
-
-            AppLogger.Log($"PerformFitToView: Applied new transforms. Effective Scale=({_scaleTransform.ScaleX:F4}, {_scaleTransform.ScaleY:F4}), Effective Translate=({_translateTransform.X:F2}, {_translateTransform.Y:F2})", LogLevel.Info);
-
-            // Log the state of the actual transform objects now part of CadCanvas.RenderTransform
-            AppLogger.Log("=== Final Transform State (Post Re-Assignment and Field Update) ===", LogLevel.Info);
-            AppLogger.Log($"Field _scaleTransform State: ({_scaleTransform.ScaleX:F4}, {_scaleTransform.ScaleY:F4})", LogLevel.Info);
-            AppLogger.Log($"Field _translateTransform State: ({_translateTransform.X:F2}, {_translateTransform.Y:F2})", LogLevel.Info);
-
-            // Calculate and log viewport bounds in DXF coordinates using the now-updated _scaleTransform and _translateTransform fields
-            double absScaleX = Math.Abs(_scaleTransform.ScaleX);
-            if (absScaleX < 1e-9) absScaleX = 1e-9;
-
-            double effectiveScaleYForViewport = _scaleTransform.ScaleY;
-            if (Math.Abs(effectiveScaleYForViewport) < 1e-9)
-            {
-                effectiveScaleYForViewport = (effectiveScaleYForViewport < 0) ? -1e-9 : 1e-9; // Preserve sign if it was meant to be negative
-            }
-
-            double viewportLeft = -_translateTransform.X / absScaleX;
-            double viewportRight = (canvasWidth - _translateTransform.X) / absScaleX;
-
-            double viewportDxfTop = (0 - _translateTransform.Y) / effectiveScaleYForViewport;
-            double viewportDxfBottom = (canvasHeight - _translateTransform.Y) / effectiveScaleYForViewport;
-
-            AppLogger.Log("=== Viewport in DXF Coordinates (approximate, based on canvas edges) ===", LogLevel.Info);
-            AppLogger.Log($"X range: {Math.Min(viewportLeft, viewportRight):F2} to {Math.Max(viewportLeft, viewportRight):F2}", LogLevel.Info);
-            AppLogger.Log($"Y range: {Math.Min(viewportDxfTop, viewportDxfBottom):F2} to {Math.Max(viewportDxfTop, viewportDxfBottom):F2}", LogLevel.Info);
-
-            AppLogger.Log("=== Canvas Information (End of PerformFitToView) ===", LogLevel.Info);
-            AppLogger.Log($"Canvas Size: {canvasWidth:F2} x {canvasHeight:F2}", LogLevel.Info);
+            _transformGroup.Children.Clear();
+            _transformGroup.Children.Add(new TranslateTransform(dx, dy));
+            _transformGroup.Children.Add(new ScaleTransform(scale, scale));
         }
 
         /// <summary>
