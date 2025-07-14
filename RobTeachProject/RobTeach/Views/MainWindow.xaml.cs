@@ -1448,26 +1448,25 @@ namespace RobTeach.Views
 
         private void PerformFitToView()
         {
-            if (_dxfBoundingBox.IsEmpty || CadCanvas.ActualWidth == 0 || CadCanvas.ActualHeight == 0)
+            if (_dxfBoundingBox.IsEmpty || CadCanvas.ActualWidth <= 0 || CadCanvas.ActualHeight <= 0)
+            {
                 return;
+            }
 
             double margin = 20;
-            double canvasWidth = CadCanvas.ActualWidth - 2 * margin;
-            double canvasHeight = CadCanvas.ActualHeight - 2 * margin;
+            double canvasWidth = CadCanvas.ActualWidth;
+            double canvasHeight = CadCanvas.ActualHeight;
 
-            double scaleX = _dxfBoundingBox.Width == 0 ? 1 : canvasWidth / _dxfBoundingBox.Width;
-            double scaleY = _dxfBoundingBox.Height == 0 ? 1 : canvasHeight / _dxfBoundingBox.Height;
+            double scaleX = (canvasWidth - 2 * margin) / _dxfBoundingBox.Width;
+            double scaleY = (canvasHeight - 2 * margin) / _dxfBoundingBox.Height;
             double scale = Math.Min(scaleX, scaleY);
 
-            _scaleTransform.ScaleX = scale;
-            _scaleTransform.ScaleY = -scale; // Keep Y-axis inverted
+            double offsetX = margin - _dxfBoundingBox.X * scale;
+            double offsetY = margin - _dxfBoundingBox.Y * scale;
 
-            // Center the content
-            double scaledContentWidth = _dxfBoundingBox.Width * scale;
-            double scaledContentHeight = _dxfBoundingBox.Height * scale;
-
-            _translateTransform.X = margin - _dxfBoundingBox.Left * scale + (canvasWidth - scaledContentWidth) / 2;
-            _translateTransform.Y = CadCanvas.ActualHeight - margin - (-_dxfBoundingBox.Bottom * scale) - (canvasHeight - scaledContentHeight) / 2;
+            _transformGroup.Children.Clear();
+            _transformGroup.Children.Add(new ScaleTransform(scale, scale));
+            _transformGroup.Children.Add(new TranslateTransform(offsetX, offsetY));
         }
 
         /// <summary>
