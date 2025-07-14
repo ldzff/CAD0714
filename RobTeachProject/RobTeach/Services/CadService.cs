@@ -49,6 +49,24 @@ namespace RobTeach.Services
 
         private System.Windows.Shapes.Shape? CreateShapeFromEntity(DxfEntity entity, DxfFile dxfFile)
         {
+            if (entity is DxfInsert insert)
+            {
+                var block = dxfFile.Blocks.FirstOrDefault(b => b.Name == insert.Name);
+                if (block == null) return null;
+                var group = new GeometryGroup();
+                foreach (var blockEntity in block.Entities)
+                {
+                    var transformedEntity = TransformBlockEntity(blockEntity, insert);
+                    var shape = CreateShapeFromEntity(transformedEntity, dxfFile);
+                    if (shape != null)
+                    {
+                        var geometry = shape.RenderedGeometry.Clone();
+                        group.Children.Add(geometry);
+                    }
+                }
+                return new System.Windows.Shapes.Path { Data = group };
+            }
+
             switch (entity)
             {
                 case DxfLine line:
@@ -68,21 +86,6 @@ namespace RobTeach.Services
                     return CreateArcPath(arc);
                 case DxfLwPolyline polyline:
                     return ConvertLwPolylineToWpfPath(polyline);
-                case DxfInsert insert:
-                    var block = dxfFile.Blocks.FirstOrDefault(b => b.Name == insert.Name);
-                    if (block == null) return null;
-                    var group = new GeometryGroup();
-                    foreach (var blockEntity in block.Entities)
-                    {
-                        var transformedEntity = TransformBlockEntity(blockEntity, insert);
-                        var shape = CreateShapeFromEntity(transformedEntity, dxfFile);
-                        if (shape != null)
-                        {
-                            var geometry = shape.RenderedGeometry.Clone();
-                            group.Children.Add(geometry);
-                        }
-                    }
-                    return new System.Windows.Shapes.Path { Data = group };
                 default:
                     return null;
             }
