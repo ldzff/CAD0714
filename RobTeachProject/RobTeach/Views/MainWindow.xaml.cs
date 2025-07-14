@@ -1461,9 +1461,15 @@ namespace RobTeach.Views
             double scaleY = (canvasHeight - 2 * margin) / _dxfBoundingBox.Height;
             double scale = Math.Min(scaleX, scaleY);
 
-            _transformGroup.Children.Clear();
-            _transformGroup.Children.Add(new ScaleTransform(scale, -scale));
-            _transformGroup.Children.Add(new TranslateTransform(margin - _dxfBoundingBox.X * scale, canvasHeight - margin + _dxfBoundingBox.Y * scale));
+            // Invert Y-axis for correct orientation
+            _scaleTransform.ScaleX = scale;
+            _scaleTransform.ScaleY = -scale;
+
+            // Center the drawing
+            double scaledWidth = _dxfBoundingBox.Width * scale;
+            double scaledHeight = _dxfBoundingBox.Height * scale;
+            _translateTransform.X = (canvasWidth - scaledWidth) / 2 - _dxfBoundingBox.X * scale;
+            _translateTransform.Y = (canvasHeight + scaledHeight) / 2 - _dxfBoundingBox.Y * scale;
         }
 
         /// <summary>

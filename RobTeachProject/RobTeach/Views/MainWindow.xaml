@@ -18,23 +18,32 @@
         <SolidColorBrush x:Key="CanvasContainerBackgroundBrush" Color="#FF2D2D30"/>
         <SolidColorBrush x:Key="BorderBrush" Color="#FF555555"/>
     </mah:MetroWindow.Resources>
-    <DockPanel>
-        <!-- Top Menu Bar -->
-        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="5,5,5,0" Background="{StaticResource PanelBackgroundBrush}">
-            <Button Content="Load DXF" Click="LoadDxfButton_Click" Name="LoadDxfButton" Padding="5" Margin="0,0,5,0"/>
-            <Button Content="Save Config" Name="SaveConfigButton" Click="SaveConfigButton_Click" Padding="5" Margin="0,0,5,0"/>
-            <Button Content="Load Config" Name="LoadConfigButton" Click="LoadConfigButton_Click" Padding="5" Margin="0,0,5,0"/>
-            <Button Content="Fit to View" Click="FitToViewButton_Click" Name="FitToViewButton" Padding="5" Margin="0,0,0,0"/>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top Panel -->
+        <StackPanel Grid.Row="0" Orientation="Vertical">
+            <StackPanel Orientation="Horizontal" Margin="5,5,5,0" Background="{StaticResource PanelBackgroundBrush}">
+                <Button Content="Load DXF" Click="LoadDxfButton_Click" Name="LoadDxfButton" Padding="5" Margin="0,0,5,0"/>
+                <Button Content="Save Config" Name="SaveConfigButton" Click="SaveConfigButton_Click" Padding="5" Margin="0,0,5,0"/>
+                <Button Content="Load Config" Name="LoadConfigButton" Click="LoadConfigButton_Click" Padding="5" Margin="0,0,5,0"/>
+                <Button Content="Fit to View" Click="FitToViewButton_Click" Name="FitToViewButton" Padding="5" Margin="0,0,0,0"/>
+            </StackPanel>
         </StackPanel>
 
-        <!-- Bottom Status Bar -->
-        <StatusBar DockPanel.Dock="Bottom" Margin="5,0,5,5" Background="{StaticResource PanelBackgroundBrush}">
-            <TextBlock Name="StatusTextBlock" Text="Ready"/>
-        </StatusBar>
+        <!-- Middle Content -->
+        <Border Grid.Row="1" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Margin="5" Background="{StaticResource CanvasContainerBackgroundBrush}">
+            <Canvas x:Name="CadCanvas" ClipToBounds="True"
+                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                    Background="{StaticResource CanvasBackgroundBrush}"/>
+        </Border>
 
-        <!-- Bottom Panels (Config and Modbus) -->
-        <StackPanel DockPanel.Dock="Bottom" Orientation="Vertical">
-            <!-- Configuration and Action Panel -->
+        <!-- Bottom Panel -->
+        <StackPanel Grid.Row="2" Orientation="Vertical">
             <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto" Margin="5,0,5,5" Background="{StaticResource PanelBackgroundBrush}">
                 <StackPanel Orientation="Horizontal">
                     <Label Content="Product:" VerticalAlignment="Center" Foreground="{StaticResource DefaultTextBrush}"/>
@@ -106,7 +115,6 @@
                         </StackPanel>
                     </GroupBox>
 
-                    <!-- New Test Run Control GroupBox -->
                     <GroupBox Header="Test Run Control" Margin="5,0,0,0" Padding="5" VerticalAlignment="Top" Foreground="{StaticResource DefaultTextBrush}">
                         <StackPanel Orientation="Vertical">
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
@@ -117,11 +125,8 @@
                             <Button Name="StartTestRunButton" Content="Start Test Run" Padding="5" IsEnabled="False"/>
                         </StackPanel>
                     </GroupBox>
-
                 </StackPanel>
             </ScrollViewer>
-
-            <!-- Modbus Panel -->
             <StackPanel Orientation="Horizontal" Margin="5" Background="{StaticResource PanelBackgroundBrush}">
                 <Label Content="Modbus IP:" VerticalAlignment="Center" Foreground="{StaticResource DefaultTextBrush}"/>
                 <TextBox Name="ModbusIpAddressTextBox" Width="100" VerticalAlignment="Center" Text="127.0.0.1" Margin="0,0,10,0"/>
@@ -133,15 +138,9 @@
                 <Ellipse Name="ModbusStatusIndicatorEllipse" Width="15" Height="15" Fill="Red" Margin="5,0,0,0" VerticalAlignment="Center" Stroke="DarkGray" StrokeThickness="1"/>
                 <TextBlock Name="ModbusStatusTextBlock" Text="Disconnected" VerticalAlignment="Center" Margin="5,0,0,0"/>
             </StackPanel>
+            <StatusBar Margin="5,0,5,5" Background="{StaticResource PanelBackgroundBrush}">
+                <TextBlock Name="StatusTextBlock" Text="Ready"/>
+            </StatusBar>
         </StackPanel>
-
-        <!-- CAD Canvas Area -->
-        <Border BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Margin="5" Background="{StaticResource CanvasContainerBackgroundBrush}">
-            <Canvas x:Name="CadCanvas" ClipToBounds="False"
-                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                    Background="{StaticResource CanvasBackgroundBrush}"
-                    Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Border}}"
-                    Height="{Binding ActualHeight, RelativeSource={RelativeSource AncestorType=Border}}"/>
-        </Border>
-    </DockPanel>
+    </Grid>
 </mah:MetroWindow>
